@@ -1,0 +1,21 @@
+3bc.ie — review draft, 6 November 2026
+
+Provenance
+- Reuses Code PR #1 (code/new-site); this PR targets main.
+- Founder facts: Dev Ops 6060. Mona copy v1: Dev Ops 6065.
+- Cork design handoff has not been received. Layout is provisional WORK implementation using the Desk palette and system typography; design sign-off remains open.
+
+Validation
+- python3 -m unittest discover -s tests -v: 7 passing checks.
+- All seven pages checked for horizontal overflow at 320px and 390px.
+- Dark-mode homepage and About/404 layouts visually inspected. Review screenshots saved outside the repository.
+- Static HTML/CSS only. No build command, package installation, scripts, forms, third-party fonts or trackers. Root is the intended publish directory.
+
+Publication hold
+Do not merge or publish this draft without completing design/content review and the Founder release decision. No hosting, DNS or deployment changes were made. CNAME remains 3bc.ie. Every page is labelled draft and noindex; noindex is not access control.
+
+Before launch
+- Cork design sign-off and Code technical review.
+- Founder public-name spelling, London location and any board roster additions.
+- Legal review: controller details, lawful bases, retention, processors, international transfers and rights process; jurisdiction wording remains proposed draft text.
+- Verify mailbox delivery and production custom-404 routing after authorised hosting setup.
