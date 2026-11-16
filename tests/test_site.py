@@ -98,7 +98,7 @@ class SiteTests(unittest.TestCase):
         self.assertIn('hello@team.malektareq.com', text['contact.html']); self.assertIn('privacy@team.malektareq.com', text['contact.html'])
         for term in ['UK GDPR',"Information Commissioner's Office",'EU GDPR','Irish Data Protection Commission']:self.assertIn(term,text['privacy.html'])
         self.assertIn('courts are those of England and Wales',text['terms.html'])
-    def test_cork_type_and_spacing_tokens(self):
+    def test_type_and_spacing_tokens(self):
         css=(ROOT/'style.css').read_text().replace(' ', '')
         for token in ('font:17px/1.6', 'font-size:20px', 'clamp(36px,6vw,56px)', 'line-height:1.05',
                       'font-size:28px', 'font-size:22px', 'max-width:68ch', 'flex:0028px', 'width:28px',
@@ -109,6 +109,10 @@ class SiteTests(unittest.TestCase):
     def test_404_links_are_root_absolute(self):
         for tag,attrs in load('404.html').tags:
             if 'href' in attrs:self.assertTrue(attrs['href'].startswith(('/', '#','mailto:')))
+    def test_tests_are_not_published(self):
+        config=(ROOT/'_config.yml').read_text()
+        self.assertRegex(config, r'(?m)^exclude:\n(?:  - .*\n)*  - tests$')
+        self.assertFalse((ROOT/'.nojekyll').exists(), 'the exclude list is read by the Pages (Jekyll) build only')
     def test_existing_domain_unchanged(self):self.assertEqual((ROOT/'CNAME').read_text().strip(),'3bc.ie')
     def test_review_notes_are_not_a_published_file(self):
         self.assertFalse((ROOT/'REVIEW.txt').exists())
