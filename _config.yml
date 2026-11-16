@@ -1,0 +1,4 @@
+# GitHub Pages builds this site from the repository root (legacy build). Nothing here changes how pages render:
+# it only keeps the review tests out of the published site.
+exclude:
+  - tests
