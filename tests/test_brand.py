@@ -59,26 +59,27 @@ class Site(unittest.TestCase):
             for old in ('#3b5bdb', '#8da2ff', '#235e90'):
                 self.assertNotIn(old, text, path.name)
 
-    def test_the_lockup_is_in_the_header_and_the_footer_with_its_wordmark_slot(self):
+    def test_the_lockup_is_in_the_header_and_the_footer(self):
+        # The Founder chose "Use system font": the wordmark is live HTML text in the site's system stack, beside the SVG mark.
         css = (ROOT / 'style.css').read_text().replace(' ', '')
         self.assertIn('min-width:72px', css)
         self.assertIn('gap:calc(var(--mark)*14/64)', css)   # clear space: one bar width
+        word = css[css.index('.wordmark{'):]
+        word = word[:word.index('}')]
+        for rule in ('font-family:var(--font)', 'font-weight:800', 'letter-spacing:-.02em'):
+            self.assertIn(rule, word)
+        self.assertIn('-apple-system,BlinkMacSystemFont,"SegoeUI",Roboto,"HelveticaNeue",Arial', css)
         for page in PAGES:
             raw = (ROOT / page).read_text()
             header, footer = raw[raw.index('<header'):raw.index('</header>')], raw[raw.index('<footer'):raw.index('</footer>')]
             for part in (header, footer):
-                self.assertEqual(rects(part[part.index('<svg class="brand-mark"'):]) [:3], MASTER, page)
-                self.assertIn('WORDMARK SLOT: brand/wordmark.svg', part, page)
+                self.assertEqual(rects(part[part.index('<svg class="brand-mark"'):])[:3], MASTER, page)
+                self.assertIn('<span class="wordmark" aria-hidden="true">3BC</span>', part, page)
+                self.assertIn('<svg class="brand-mark" viewBox="0 0 64 64" width="28" height="28"', part, page)   # sized without CSS too
+                self.assertNotIn('<text', part)
             self.assertIn('aria-label="3BC Home"', header)
-
-    def test_a_wordmark_when_it_lands_is_outlines_only(self):
-        word = ROOT / 'brand/wordmark.svg'
-        if not word.exists():
-            self.skipTest('wordmark pending (the Sora ExtraBold outlines)')
-        svg = word.read_text()
-        self.assertIn('<path', svg)
-        for banned in ('<text', 'font-family', '@font-face', 'fonts.googleapis', 'href='):
-            self.assertNotIn(banned, svg)
+        self.assertFalse((ROOT / 'brand/wordmark.svg').exists(), 'no outlined wordmark: live text only')
+        self.assertEqual(json.loads((ROOT / 'brand/tokens.json').read_text())['wordmark']['weight'], 800)
 
     def test_no_web_font_loads(self):
         for path in [ROOT / 'style.css', *(ROOT / p for p in PAGES)]:
@@ -127,8 +128,10 @@ class Icons(unittest.TestCase):
                 self.assertIn('property="og:image" content="https://3bc.ie/brand/og.png"', raw)
                 self.assertIn('property="og:url" content="https://3bc.ie/' + CONTENT[page] + '"', raw)
                 self.assertIn('name="twitter:card" content="summary_large_image"', raw)
+                self.assertIn('name="twitter:image" content="https://3bc.ie/brand/og.png"', raw)
                 title = re.search(r'<title>([^<]*)</title>', raw).group(1)
                 self.assertIn('property="og:title" content="' + title + '"', raw)
+                self.assertIn('name="twitter:title" content="' + title + '"', raw)
 
 
 if __name__ == '__main__':

@@ -92,14 +92,14 @@ a:focus-visible, .btn:focus-visible {
   fill:var(--accent)
 }
 .wordmark {
+  font-family:var(--font);
   font-weight:800;
   font-size:calc(var(--mark) * 0.8);
-  letter-spacing:-.03em;
+  letter-spacing:-.02em;
   line-height:1;
   color:var(--text)
 }
 .brand-small {
-  --mark:24px;
   min-height:0
 }
 .footer-brand {
