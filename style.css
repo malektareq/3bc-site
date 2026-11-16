@@ -1,15 +1,15 @@
 /* 3BC site styles */
 :root {
   color-scheme:light dark;
-  --bg:#f6f7f9;
+  --bg:#F4F3FA;
   --surface:#fff;
   --surface-2:#f1f3f6;
-  --text:#14181f;
+  --text:#12121A;
   --muted:#5b6472;
   --line:#e3e7ec;
-  --accent:#3b5bdb;
+  --accent:#5B3DF5;
   --accent-ink:#fff;
-  --accent-soft:#e8edff;
+  --accent-soft:#ECE8FE;
   --note-bg:#fff3db;
   --note-text:#754500;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif
@@ -23,9 +23,9 @@
   --text:#e8ebf0;
   --muted:#aab3c2;
   --line:#323a46;
-  --accent:#8da2ff;
-  --accent-ink:#0b1020;
-  --accent-soft:#1f2747;
+  --accent:#A99BFF;
+  --accent-ink:#12121A;
+  --accent-soft:#262046;
   --note-bg:#33270f;
   --note-text:#f2c168
 }
@@ -76,19 +76,37 @@ a:focus-visible, .btn:focus-visible {
   min-height:80px
 }
 .brand {
+  --mark:28px;
+  display:inline-flex;
+  align-items:center;
+  gap:calc(var(--mark) * 14 / 64);
+  min-width:72px;
+  min-height:44px;
+  color:var(--text);
   text-decoration:none
 }
 .brand-mark {
-  display:grid;
-  place-items:center;
-  width:48px;
-  height:48px;
-  background:var(--accent);
-  color:var(--accent-ink);
-  font-size:17px;
-  letter-spacing:-.06em;
-  font-weight:650;
-  border-radius:8px
+  width:var(--mark);
+  height:var(--mark);
+  flex:none;
+  fill:var(--accent)
+}
+.wordmark {
+  font-weight:800;
+  font-size:calc(var(--mark) * 0.8);
+  letter-spacing:-.03em;
+  line-height:1;
+  color:var(--text)
+}
+.brand-small {
+  --mark:24px;
+  min-height:0
+}
+.footer-brand {
+  display:inline-flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap
 }
 .nav {
   display:flex;
