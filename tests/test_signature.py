@@ -1,7 +1,7 @@
-"""The Founder's email signature in the Signal brand (release checklist item 5; intake 001): an HTML version with inline styles
-and the system font stack, and a plain-text version, both carrying only details the site already publishes, with the mark as
-an image served from the site. Under 10 KB, no tracking, no external fonts, no JavaScript. signature/index.html renders both.
-Dependency-free."""
+"""The Founder's email signature in the Signal brand (release checklist item 5; intake 001; Cork, board 14214, and Mona, 14216):
+an HTML version with inline styles and the system font stack, and a plain-text version that is the canonical fallback and stands
+alone with the same identity facts. Only details the site publishes, the mark as an image served from the site, under 10 KB, no
+tracking, no external fonts, no JavaScript, no email address. signature/index.html renders both. Dependency-free."""
 import html
 import re
 import struct
@@ -46,34 +46,36 @@ class Html(unittest.TestCase):
         self.assertLess(len(png), 2048)
         for url in re.findall(r'(?:src|href)="([^"]*)"', FRAGMENT):
             self.assertNotIn('?', url, 'no query strings: nothing that identifies the reader')
-            self.assertTrue(url.startswith((SITE, 'mailto:')), url)
+            self.assertTrue(url.startswith(SITE), url)
 
     def test_details_only_from_the_site(self):
         self.assertIn('Tariq Mehmood <span>Founder</span>', PUBLISHED, 'the name and title as the About page gives them')
-        for part in ('Tariq Mehmood', 'Founder', 'hello@team.malektareq.com', 'London, United Kingdom', 'Registration pending'):
+        for part in ('Tariq Mehmood', 'Founder', '3BC', '3bc.ie', 'London, United Kingdom'):
             self.assertIn(part, FRAGMENT, part)
         self.assertEqual((ROOT / 'CNAME').read_text().strip(), '3bc.ie')
-        self.assertIn('Registration pending', PUBLISHED)
-        for address in set(re.findall(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)+', FRAGMENT + TEXT)):
-            self.assertIn(address, PUBLISHED, 'an address the site publishes: ' + address)
+        self.assertIn('London, United Kingdom', PUBLISHED)
+        self.assertIsNone(re.search(r'@|mailto:', FRAGMENT + TEXT), 'no email line until hello at 3bc.ie is set up (Cork and Mona)')
+        self.assertNotIn('Registration pending', FRAGMENT + TEXT, 'the registered name and number come later, in both versions')
         self.assertIsNone(re.search(r'\d[\d ()+.-]{6,}\d', html.unescape(re.sub(r'<[^>]+>', ' ', FRAGMENT)) + TEXT), 'no phone number')
 
-    def test_text_takes_the_mail_app_s_colour(self):
-        # A fixed dark text colour vanished on dark mail backgrounds (1.09:1 measured on the preview): text inherits the client's
-        # own colour, which adapts to dark mode; only the links keep Signal (6.1:1 on white).
+    def test_one_link_a_signal_tint_underlined(self):
+        # Cork and Mona: #7B66F8 (about 4.1:1 on white and on dark mail backgrounds), underlined so the link is not shown by colour
+        # alone. Text takes the mail app's own colour (a fixed dark ink measured 1.09:1 on a dark mail background).
+        self.assertEqual(re.findall(r'href="([^"]*)"', FRAGMENT), ['https://3bc.ie'])
         styles = re.findall(r'<(\w+)\b[^>]*style="([^"]*)"', FRAGMENT)
         coloured = [(tag, style) for tag, style in styles if re.search(r'(?<![-\w])color:', style)]
-        self.assertEqual([tag for tag, _ in coloured], ['a', 'a'])
-        self.assertTrue(all('color:#5B3DF5' in style for _, style in coloured))
-
-    def test_links(self):
-        self.assertEqual(sorted(re.findall(r'href="([^"]*)"', FRAGMENT)), ['https://3bc.ie', 'mailto:hello@team.malektareq.com'])
+        self.assertEqual(coloured, [('a', 'color:#7B66F8;text-decoration:underline')])
 
 
 class PlainText(unittest.TestCase):
-    def test_the_same_details(self):
-        self.assertEqual(TEXT.splitlines(), ['Tariq Mehmood', 'Founder, 3BC', 'hello@team.malektareq.com | https://3bc.ie',
-                                             'London, United Kingdom', 'Registration pending'])
+    def test_the_canonical_fallback_stands_alone(self):
+        self.assertEqual(TEXT.splitlines(), ['Tariq Mehmood', 'Founder, 3BC', 'https://3bc.ie', 'London, United Kingdom'])
+
+    def test_the_html_and_the_plain_text_carry_the_same_facts(self):
+        # Cork and Mona: the plain text is the canonical fallback, so the HTML may say nothing it does not.
+        lines = [html.unescape(re.sub(r'<[^>]+>', '', d)) for d in re.findall(r'<div\b[^>]*>(.*?)</div>', FRAGMENT)]
+        site = re.search(r'href="([^"]*)"', FRAGMENT).group(1)
+        self.assertEqual([site if line == '3bc.ie' else line for line in lines], TEXT.splitlines())
 
     def test_short_ascii_lines(self):
         self.assertTrue(TEXT.isascii())
