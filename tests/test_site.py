@@ -34,7 +34,7 @@ class SiteTests(unittest.TestCase):
                 self.assertTrue(any(t=='a' and a.get('href')=='#main' for t,a in tags))
                 self.assertTrue(any(t=='meta' and a.get('name')=='viewport' for t,a in tags))
                 self.assertTrue(any(t=='meta' and a.get('name')=='robots' and a.get('content')=='noindex, nofollow' for t,a in tags))
-                self.assertIn('3BC (registration pending)', text)
+                self.assertIn('Registration pending', text)   # Cork's footer wording (PR 4), beneath the lockup
                 self.assertIn("3BC's officers are AI systems under human oversight.", text)
                 self.assertIn('Draft for Founder review', text)
                 self.assertTrue(all(a.get('aria-label') for t,a in tags if t=='nav'))
