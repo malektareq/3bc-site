@@ -5,6 +5,7 @@ import json
 import re
 import struct
 import unittest
+import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +20,32 @@ TOKENS = {'signal': '#5B3DF5', 'signal-on-dark': '#A99BFF', 'ink': '#12121A', 'p
 def rects(svg):
     return [tuple(int(r[k]) for k in ('x', 'y', 'width', 'height'))
             for r in (dict(re.findall(r'(\w+)="([^"]*)"', m)) for m in re.findall(r'<rect ([^>]*)/>', svg))]
+
+
+def png_pixels(data):
+    """(width, height, channels, rows) of an 8-bit non-interlaced RGB or RGBA PNG, unfiltered (standard library only)."""
+    w, h, depth, ctype = struct.unpack('>IIBB', data[16:26])
+    assert depth == 8 and ctype in (2, 6), (depth, ctype)
+    bpp = 3 if ctype == 2 else 4
+    idat, i = b'', 8
+    while i < len(data):
+        n, = struct.unpack('>I', data[i:i + 4])
+        if data[i + 4:i + 8] == b'IDAT':
+            idat += data[i + 8:i + 8 + n]
+        i += 12 + n
+    raw, stride, rows, prev = zlib.decompress(idat), w * bpp, [], bytearray(w * bpp)
+    for y in range(h):
+        f, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for x in range(stride):
+            a = line[x - bpp] if x >= bpp else 0
+            b, c = prev[x], (prev[x - bpp] if x >= bpp else 0)
+            p = a + b - c
+            pred = {0: 0, 1: a, 2: b, 3: (a + b) // 2,
+                    4: a if abs(p - a) <= abs(p - b) and abs(p - a) <= abs(p - c) else b if abs(p - b) <= abs(p - c) else c}[f]
+            line[x] = (line[x] + pred) & 255
+        rows.append(line)
+        prev = line
+    return w, h, bpp, rows
 
 
 def png_size(data):
@@ -78,7 +105,17 @@ class Site(unittest.TestCase):
                 self.assertIn('<svg class="brand-mark" viewBox="0 0 64 64" width="28" height="28"', part, page)   # sized without CSS too
                 self.assertNotIn('<text', part)
             self.assertIn('aria-label="3BC Home"', header)
+            # Cork: the footer lockup on its own line, "Registration pending" beneath it in 11 px secondary text.
+            self.assertIn('<span class="brand brand-small" role="img" aria-label="3BC">', footer, page)
+            self.assertIn('<span class="footer-status">Registration pending</span>', footer, page)
+            self.assertNotIn('3BC (registration pending)', footer, page)
         self.assertFalse((ROOT / 'brand/wordmark.svg').exists(), 'no outlined wordmark: live text only')
+        status = css[css.index('.footer-status{'):]
+        status = status[:status.index('}')]
+        self.assertIn('font-size:11px', status)
+        self.assertIn('color:var(--muted)', status)
+        brand = css[css.index('.footer-brand{'):]
+        self.assertIn('flex-direction:column', brand[:brand.index('}')])
         self.assertEqual(json.loads((ROOT / 'brand/tokens.json').read_text())['wordmark']['weight'], 800)
 
     def test_no_web_font_loads(self):
@@ -99,6 +136,12 @@ class Icons(unittest.TestCase):
             w, h, _, _, _, _, length, offset = struct.unpack('<BBBBHHII', data[6 + 16 * i:22 + 16 * i])
             self.assertEqual(png_size(data[offset:offset + length]), (w, h))
             sizes.append(w)
+            if w == 16:
+                # The 16 px entry is the snapped mark, pixel for pixel: opaque exactly where its bars are (composer red-team).
+                _, _, bpp, rows = png_pixels(data[offset:offset + length])
+                ink = {(x, y) for y, line in enumerate(rows) for x in range(16) if line[bpp * x + 3] > 128}
+                bars = {(x, y) for bx, by, bw, bh in SMALL for x in range(bx, bx + bw) for y in range(by, by + bh)}
+                self.assertEqual(ink, bars)
         self.assertEqual(sizes, [16, 32])
 
     def test_every_png_is_its_stated_size(self):
@@ -106,9 +149,12 @@ class Icons(unittest.TestCase):
                            ('brand/og.png', (1200, 630))):
             self.assertEqual(png_size((ROOT / name).read_bytes()), size, name)
 
-    def test_the_svg_favicon_is_the_master_and_follows_dark_mode(self):
+    def test_the_svg_favicon_is_drawn_on_the_16_px_grid_and_follows_dark_mode(self):
+        # Cork (Dev Ops 14137): browsers show the SVG favicon at 16 px, so it is the snapped mark; large sizes come from PNGs.
         svg = (ROOT / 'favicon.svg').read_text()
-        self.assertEqual(rects(svg), MASTER)
+        self.assertIn('viewBox="0 0 16 16"', svg)
+        self.assertEqual(rects(svg), SMALL)
+        self.assertNotIn('rx=', svg)
         self.assertIn('prefers-color-scheme:dark', svg.replace(' ', ''))
         self.assertIn(TOKENS['signal-on-dark'], svg)
 
@@ -117,16 +163,31 @@ class Icons(unittest.TestCase):
         self.assertEqual((m['name'], m['theme_color'], m['background_color']), ('3BC', TOKENS['signal'], TOKENS['paper']))
         for icon in m['icons']:
             self.assertEqual(png_size((ROOT / icon['src'].lstrip('/')).read_bytes()), tuple(int(n) for n in icon['sizes'].split('x')))
+            self.assertEqual(icon['purpose'], 'any')   # not maskable (Cork)
+
+    def test_the_touch_icon_is_opaque_with_the_mark_inside_the_centre_80_percent(self):
+        data = (ROOT / 'apple-touch-icon.png').read_bytes()
+        self.assertEqual(struct.unpack('>IIBB', data[16:26]), (180, 180, 8, 2), 'RGB: no alpha channel at all')
+        self.assertNotIn(b'tRNS', data, 'no transparency chunk either (Fable red-team)')
+        w, h, _, rows = png_pixels(data)
+        white = [(x, y) for y, line in enumerate(rows) for x in range(w) if line[3 * x] > 200 and line[3 * x + 1] > 200 and line[3 * x + 2] > 200]
+        self.assertTrue(white, 'the white mark is there')
+        xs, ys = [x for x, _ in white], [y for _, y in white]
+        lo, hi = round(w * 0.1), round(w * 0.9)
+        self.assertTrue(lo <= min(xs) and max(xs) < hi and lo <= min(ys) and max(ys) < hi, (min(xs), max(xs), min(ys), max(ys)))
 
     def test_every_page_links_the_icons_and_content_pages_carry_the_social_tags(self):
         for page in PAGES:
             raw = (ROOT / page).read_text()
             for tag in ('rel="icon" href="/favicon.ico"', 'rel="icon" href="/favicon.svg"', 'rel="apple-touch-icon" href="/apple-touch-icon.png"',
-                        'rel="manifest" href="/site.webmanifest"', 'name="theme-color" content="#5B3DF5"'):
+                        'rel="manifest" href="/site.webmanifest"',
+                        'name="theme-color" media="(prefers-color-scheme: light)" content="#5B3DF5"',
+                        'name="theme-color" media="(prefers-color-scheme: dark)" content="#12121A"'):
                 self.assertIn(tag, raw, page)
             if page in CONTENT:
                 self.assertIn('property="og:image" content="https://3bc.ie/brand/og.png"', raw)
-                self.assertIn('property="og:url" content="https://3bc.ie/' + CONTENT[page] + '"', raw)
+                self.assertIn('property="og:url" content="https://3bc.ie/' + CONTENT[page] + '"', raw)   # the page itself
+                self.assertNotIn('rel="canonical"', raw, 'no canonical pointing elsewhere')
                 self.assertIn('name="twitter:card" content="summary_large_image"', raw)
                 self.assertIn('name="twitter:image" content="https://3bc.ie/brand/og.png"', raw)
                 title = re.search(r'<title>([^<]*)</title>', raw).group(1)
