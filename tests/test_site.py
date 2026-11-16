@@ -88,7 +88,8 @@ class SiteTests(unittest.TestCase):
         text={f:' '.join(load(f).text) for f in PAGES}
         self.assertIn('Launching soon', text['index.html']); self.assertIn('We are not taking on clients yet.',text['index.html'])
         self.assertIn('Register your interest', text['index.html']); self.assertIn('Register your interest', text['what-we-do.html'])
-        self.assertNotIn('for a quote', text['what-we-do.html'])
+        self.assertIn('For future work, contact us for a quote.', text['what-we-do.html'])   # the Founder's answer 5 (6060)
+        self.assertIn('Register your interest', text['what-we-do.html'])   # still the button, not a quote button
         self.assertIn('How 3BC works', text['index.html'])
         for step in ('Defined roles', 'Transparent records', 'Human accountability'): self.assertIn(step, text['index.html'])
         self.assertIn('founded in 2026',text['about.html']);self.assertIn('United Kingdom',text['about.html'])
@@ -109,6 +110,18 @@ class SiteTests(unittest.TestCase):
     def test_404_links_are_root_absolute(self):
         for tag,attrs in load('404.html').tags:
             if 'href' in attrs:self.assertTrue(attrs['href'].startswith(('/', '#','mailto:')))
+    def test_mona_and_cork_batch(self):
+        raw={f:(ROOT/f).read_text() for f in PAGES}
+        self.assertTrue(all('↗' not in raw[f] for f in PAGES), 'the mailto button is not an external link')
+        self.assertIn('privacy&nbsp;notice&nbsp;<span aria-hidden="true">→</span>', raw['contact.html'])   # the arrow stays with its word
+        caps=re.findall(r'<li><span>(0\d)</span>([^<]+)</li>', raw['what-we-do.html'])
+        self.assertEqual(caps, [('01','AI-supported operations'),('02','Workflow coordination'),('03','Application delivery'),
+                                ('04','Independent review'),('05','Reporting')])
+        for f,label in (('index.html','Home'),('what-we-do.html','What we do'),('about.html','About'),('contact.html','Contact')):
+            self.assertIn('aria-current="page">'+label+'</a>', raw[f])
+        steps=raw['index.html'][raw['index.html'].index('class="steps"'):]
+        steps=steps[:steps.index('</ol>')]
+        self.assertNotIn('<svg', steps); self.assertNotIn('<img', steps)
     def test_tests_are_not_published(self):
         config=(ROOT/'_config.yml').read_text()
         self.assertRegex(config, r'(?m)^exclude:\n(?:  - .*\n)*  - tests$')
